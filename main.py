@@ -1,3 +1,5 @@
+import warnings
+warnings.filterwarnings("ignore", category=UserWarning, module="pydantic")
 import os
 import sqlite3
 import datetime
@@ -17,7 +19,6 @@ OPENAI_BASE_URL = os.environ.get("OPENAI_BASE_URL")
 OPENAI_MODEL = os.environ.get("OPENAI_MODEL")
 
 print("--- Configuration ---")
-print(f"OPENAI_BASE_URL: {OPENAI_BASE_URL}")
 print(f"OPENAI_MODEL: {OPENAI_MODEL}")
 print("---------------------")
 
@@ -93,10 +94,9 @@ def log_food(text_input):
         cached_nutrition = get_from_cache(food_item)
 
         if cached_nutrition:
-            print("\n(Cache hit)")
+            print("\n(🎯)")
             nutrition_per_100g = cached_nutrition
         else:
-            print("\n(Cache miss)")
             nutrition_per_100g = {
                 "calories": response_data["calories_per_100g"],
                 "protein": response_data["protein_per_100g"],
