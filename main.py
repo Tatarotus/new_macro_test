@@ -224,14 +224,15 @@ def get_summary_for_date(date_str):
     conn.close()
 
     if summary:
-        print(f"--- Summary for {date.strftime('%Y-%m-%d')} ---")
-        print(f"Total Calories: {summary[0]:.2f} kcal")
-        print(f"Total Protein: {summary[1]:.2f}g")
-        print(f"Total Carbs: {summary[2]:.2f}g")
-        print(f"Total Fat: {summary[3]:.2f}g")
-        print("-----------------------")
+        output = f"--- Summary for {date.strftime('%Y-%m-%d')} ---\n"
+        output += f"Total Calories: {summary[0]:.2f} kcal\n"
+        output += f"Total Protein: {summary[1]:.2f}g\n"
+        output += f"Total Carbs: {summary[2]:.2f}g\n"
+        output += f"Total Fat: {summary[3]:.2f}g"
+        paginate_output(output)
     else:
         print(f"No summary found for {date.strftime('%Y-%m-%d')}")
+
 
 def get_todays_summary():
     """
@@ -269,6 +270,23 @@ def get_todays_summary():
     else:
         print("No entries for today.")
     print("-----------------------")
+
+import subprocess
+
+def paginate_output(text):
+    """
+    Displays text page by page in the console.
+    """
+    lines = text.split('\n')
+    page_length = 10
+    for i in range(0, len(lines), page_length):
+        page = lines[i:i + page_length]
+        print('\n'.join(page))
+        if i + page_length < len(lines):
+            try:
+                input("Press Enter to continue...")
+            except EOFError:
+                break
 
 def main():
     """
