@@ -3,6 +3,8 @@ warnings.filterwarnings("ignore", category=UserWarning, module="pydantic")
 import os
 import sqlite3
 import datetime
+import sys
+import argparse
 from langchain_openai import ChatOpenAI
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.runnables import RunnableSequence
@@ -75,10 +77,22 @@ if OPENAI_MODEL:
 
 llm = ChatOpenAI(**llm_params)
 
+# Corrected prompt template
+example_json = {
+    "food_item": "bolo de banana",
+    "quantity": 175,
+    "quantity_unit": "g",
+    "calories_per_100g": 300,
+    "protein_per_100g": 4,
+    "carbs_per_100g": 40,
+    "fat_per_100g": 14
+}
+example_output = json.dumps(example_json)
+
 prompt_template = ChatPromptTemplate.from_messages(
     [
         ("system", "You are a helpful assistant that extracts nutritional information from text. Respond with only a valid JSON object."),
-        ("human", 'Extract the food item, quantity, and quantity unit from the following text. Then, estimate the calories, protein, carbohydrates, and fat for that food item per 100g. Return the result as a JSON object with the keys: "food_item", "quantity", "quantity_unit", "calories_per_100g", "protein_per_100g", "carbs_per_100g", "fat_per_100g". Example: Text: "comi 175g de bolo de banana" Output: {{\"food_item\": \"bolo de banana\", \"quantity\": 175, \"quantity_unit\": \"g\", \"calories_per_100g\": 300, \"protein_per_100g\": 4, \"carbs_per_100g\": 40, \"fat_per_100g\": 14}}'),
+        ("human", f'Extract the food item, quantity, and quantity unit from the following text. Then, estimate the calories, protein, carbohydrates, and fat for that food item per 100g. Return the result as a JSON object with the keys: "food_item", "quantity", "quantity_unit", "calories_per_100g", "protein_per_100g", "carbs_per_100g", "fat_per_100g". Example: Text: "comi 175g de bolo de banana" Output: {example_output}'),
         ("human", "{user_input}"),
     ]
 )
@@ -288,11 +302,84 @@ def paginate_output(text):
             except EOFError:
                 break
 
+def remove_last_entry():
+    """
+    Removes the last food entry for today from the database.
+    """
+    conn = sqlite3.connect(DB_FILE)
+    c = conn.cursor()
+
+    today_start = datetime.datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+    today_end = today_start + datetime.timedelta(days=1)
+
+    # Find the last entry for today
+    c.execute(
+        """
+        SELECT id, food_item, quantity, quantity_unit FROM food_log
+        WHERE timestamp >= ? AND timestamp < ?
+        ORDER BY id DESC
+        LIMIT 1
+        """,
+        (today_start.isoformat(), today_end.isoformat()),
+    )
+    last_entry = c.fetchone()
+
+    if last_entry:
+        entry_id, food_item, quantity, quantity_unit = last_entry
+        print(f"Removing last entry: {quantity}{quantity_unit} of {food_item}...")
+
+        # Delete the entry
+        c.execute("DELETE FROM food_log WHERE id = ?", (entry_id,))
+        conn.commit()
+
+        print("✅ Entry removed.")
+
+        # Recalculate and display today's summary
+        print("Updating summary...")
+        get_todays_summary()
+
+    else:
+        print("No entries for today to remove.")
+
+    conn.close()
+
+
 def main():
     """
     Main function to run the CLI.
     """
     init_db()
+
+    parser = argparse.ArgumentParser(description="Calorie and Macro Tracker CLI.")
+    parser.add_argument(
+        "-r", "--remove",
+        metavar='ITEM',
+        type=str,
+        help="Remove an entry. Currently only 'last' is supported to remove the last entry of the day."
+    )
+
+    # New argument for logging food
+    parser.add_argument(
+        "food_input",
+        nargs='?',
+        default=None,
+        help="Log a new food entry from the command line (e.g., '100g of chicken breast')."
+    )
+
+    args = parser.parse_args()
+
+    if args.remove:
+        if args.remove == 'last':
+            remove_last_entry()
+        else:
+            print(f"Unsupported remove argument: {args.remove}. Only 'last' is supported.")
+        return
+    
+    if args.food_input:
+        log_food(args.food_input)
+        return
+
+    # Interactive mode if no arguments are given
     while True:
         print("\nWhat would you like to do?")
         print("1. Log a new food entry")
