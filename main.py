@@ -46,6 +46,18 @@ def init_db():
         )
         """
     )
+    c.execute(
+        """
+        CREATE TABLE IF NOT EXISTS daily_summary (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            date TEXT NOT NULL UNIQUE,
+            total_calories REAL NOT NULL,
+            total_protein REAL NOT NULL,
+            total_carbs REAL NOT NULL,
+            total_fat REAL NOT NULL
+        )
+        """
+    )
     conn.commit()
     conn.close()
 
@@ -164,6 +176,63 @@ def save_entry(data):
     conn.close()
 
 
+def save_todays_summary(summary_data):
+    """
+    Saves or updates today's summary in the daily_summary table.
+    """
+    today_date = datetime.datetime.now().strftime("%Y-%m-%d")
+    conn = sqlite3.connect(DB_FILE)
+    c = conn.cursor()
+    c.execute(
+        """
+        INSERT OR REPLACE INTO daily_summary (date, total_calories, total_protein, total_carbs, total_fat)
+        VALUES (?, ?, ?, ?, ?)
+        """,
+        (
+            today_date,
+            summary_data[0],
+            summary_data[1],
+            summary_data[2],
+            summary_data[3],
+        ),
+    )
+    conn.commit()
+    conn.close()
+
+
+def get_summary_for_date(date_str):
+    """
+    Retrieves and displays the summary for a specific date.
+    """
+    conn = sqlite3.connect(DB_FILE)
+    c = conn.cursor()
+    try:
+        date = datetime.datetime.strptime(date_str, "%Y-%m-%d").date()
+    except ValueError:
+        print("Invalid date format. Please use YYYY-MM-DD.")
+        return
+
+    c.execute(
+        """
+        SELECT total_calories, total_protein, total_carbs, total_fat
+        FROM daily_summary
+        WHERE date = ?
+        """,
+        (date.isoformat(),),
+    )
+    summary = c.fetchone()
+    conn.close()
+
+    if summary:
+        print(f"--- Summary for {date.strftime('%Y-%m-%d')} ---")
+        print(f"Total Calories: {summary[0]:.2f} kcal")
+        print(f"Total Protein: {summary[1]:.2f}g")
+        print(f"Total Carbs: {summary[2]:.2f}g")
+        print(f"Total Fat: {summary[3]:.2f}g")
+        print("-----------------------")
+    else:
+        print(f"No summary found for {date.strftime('%Y-%m-%d')}")
+
 def get_todays_summary():
     """
     Retrieves and displays the summary of today's food entries.
@@ -192,6 +261,7 @@ def get_todays_summary():
 
     print("\n--- Today's Summary ---")
     if summary and summary[0] is not None:
+        save_todays_summary(summary)
         print(f"Total Calories: {summary[0]:.2f} kcal")
         print(f"Total Protein: {summary[1]:.2f}g")
         print(f"Total Carbs: {summary[2]:.2f}g")
@@ -209,7 +279,8 @@ def main():
         print("\nWhat would you like to do?")
         print("1. Log a new food entry")
         print("2. Show today's summary")
-        print("3. Exit")
+        print("3. Show summary for a specific date")
+        print("4. Exit")
         choice = input("> ")
         if choice == "1":
             food_input = input("Enter food entry (e.g., 'comi 100g de frango'): ")
@@ -217,6 +288,9 @@ def main():
         elif choice == "2":
             get_todays_summary()
         elif choice == "3":
+            date_input = input("Enter date (YYYY-MM-DD): ")
+            get_summary_for_date(date_input)
+        elif choice == "4":
             break
         else:
             print("Invalid choice. Please try again.")
