@@ -10,6 +10,8 @@ from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.runnables import RunnableSequence
 from langchain_core.output_parsers import StrOutputParser
 from cache import get_from_cache, add_to_cache
+from history import get_meals_for_date
+from utils import paginate_output
 import json
 from dotenv import load_dotenv
 
@@ -77,7 +79,9 @@ if OPENAI_MODEL:
 
 llm = ChatOpenAI(**llm_params)
 
-# Corrected prompt template
+# -------------------------------------------------------------
+# Fixed prompt template: only expects {user_input}
+# -------------------------------------------------------------
 example_json = {
     "food_item": "bolo de banana",
     "quantity": 175,
@@ -87,12 +91,19 @@ example_json = {
     "carbs_per_100g": 40,
     "fat_per_100g": 14
 }
-example_output = json.dumps(example_json)
+example_str = json.dumps(example_json)
 
 prompt_template = ChatPromptTemplate.from_messages(
     [
-        ("system", "You are a helpful assistant that extracts nutritional information from text. Respond with only a valid JSON object."),
-        ("human", f'Extract the food item, quantity, and quantity unit from the following text. Then, estimate the calories, protein, carbohydrates, and fat for that food item per 100g. Return the result as a JSON object with the keys: "food_item", "quantity", "quantity_unit", "calories_per_100g", "protein_per_100g", "carbs_per_100g", "fat_per_100g". Example: Text: "comi 175g de bolo de banana" Output: {example_output}'),
+        ("system",
+         "You are a helpful assistant that extracts nutritional information from text. "
+         "Respond with only a valid JSON object."),
+        ("human",
+         "Extract the food item, quantity, and quantity unit from the following text. "
+         "Then, estimate the calories, protein, carbohydrates, and fat for that food item per 100g. "
+         'Return the result as a JSON object with the keys: "food_item", "quantity", '
+         '"quantity_unit", "calories_per_100g", "protein_per_100g", "carbs_per_100g", "fat_per_100g".'),
+        ("human", f'Example: Text: "comi 175g de bolo de banana" Output: {example_str.replace("{", "{{").replace("}", "}}")}'),
         ("human", "{user_input}"),
     ]
 )
@@ -110,7 +121,6 @@ def log_food(text_input):
         if '```json' in response_str:
             response_str = response_str.split('```json')[1].split('```')[0].strip()
         response_data = json.loads(response_str)
-
 
         food_item = response_data["food_item"]
         quantity = response_data["quantity"]
@@ -285,22 +295,6 @@ def get_todays_summary():
         print("No entries for today.")
     print("-----------------------")
 
-import subprocess
-
-def paginate_output(text):
-    """
-    Displays text page by page in the console.
-    """
-    lines = text.split('\n')
-    page_length = 10
-    for i in range(0, len(lines), page_length):
-        page = lines[i:i + page_length]
-        print('\n'.join(page))
-        if i + page_length < len(lines):
-            try:
-                input("Press Enter to continue...")
-            except EOFError:
-                break
 
 def remove_last_entry():
     """
@@ -385,7 +379,8 @@ def main():
         print("1. ✍️ Log a new food entry")
         print("2. 📊 Show today's summary")
         print("3. 📅 Show summary for a specific date")
-        print("4. 🚪 Exit")
+        print("4. 📜 View meals for a specific date")
+        print("5. 🚪 Exit")
         choice = input("> ")
         if choice == "1":
             food_input = input("Enter food entry (e.g., 'comi 100g de frango'): ")
@@ -396,6 +391,9 @@ def main():
             date_input = input("Enter date (YYYY-MM-DD): ")
             get_summary_for_date(date_input)
         elif choice == "4":
+            date_input = input("Enter date (YYYY-MM-DD): ")
+            get_meals_for_date(date_input)
+        elif choice == "5":
             break
         else:
             print("Invalid choice. Please try again.")
