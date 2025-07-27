@@ -15,6 +15,30 @@ from utils import paginate_output
 import json
 from dotenv import load_dotenv
 
+def setup_environment():
+    """
+    Checks for a .env file and prompts the user to create one if it doesn't exist.
+    """
+    if not os.path.exists('.env'):
+        print("The .env file is not found.")
+        print("Please provide the following information:")
+        
+        openai_api_key = input("Enter your OpenAI API key: ")
+        openai_base_url = input("Enter the OpenAI base URL (or press Enter for default): ")
+        openai_model = input("Enter the OpenAI model name (or press Enter for default): ")
+        
+        with open('.env', 'w') as f:
+            f.write(f"OPENAI_API_KEY={openai_api_key}\n")
+            if openai_base_url:
+                f.write(f"OPENAI_BASE_URL={openai_base_url}\n")
+            if openai_model:
+                f.write(f"OPENAI_MODEL={openai_model}\n")
+        
+        print("\n.env file created successfully.")
+        print("Please restart the application to use the new settings.")
+        sys.exit(0)
+
+# Load environment variables from .env file
 load_dotenv()
 
 # --- Configuration ---
@@ -22,16 +46,9 @@ OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
 OPENAI_BASE_URL = os.environ.get("OPENAI_BASE_URL")
 OPENAI_MODEL = os.environ.get("OPENAI_MODEL")
 
-print("--- Configuration ---")
-print(f"OPENAI_MODEL: {OPENAI_MODEL}")
-print("---------------------")
-
-if not OPENAI_API_KEY:
-    raise ValueError("OPENAI_API_KEY environment variable not set.")
-
+# --- Database Setup ---
 DB_FILE = "food_log.db"
 
-# --- Database Setup ---
 def init_db():
     conn = sqlite3.connect(DB_FILE)
     c = conn.cursor()
@@ -77,7 +94,9 @@ if OPENAI_BASE_URL:
 if OPENAI_MODEL:
     llm_params["model"] = OPENAI_MODEL
 
-llm = ChatOpenAI(**llm_params)
+llm = None
+if OPENAI_API_KEY:
+    llm = ChatOpenAI(**llm_params)
 
 # -------------------------------------------------------------
 # Fixed prompt template: only expects {user_input}
@@ -108,13 +127,19 @@ prompt_template = ChatPromptTemplate.from_messages(
     ]
 )
 
-chain = prompt_template | llm | StrOutputParser()
+chain = None
+if llm:
+    chain = prompt_template | llm | StrOutputParser()
 
 # --- Main Application Logic ---
 def log_food(text_input):
     """
     Parses natural language input, gets nutritional info, and logs it.
     """
+    if not chain:
+        print("LLM not initialized. Please check your API key.")
+        return
+        
     try:
         response_str = chain.invoke({"user_input": text_input})
         # Clean the response string by removing markdown formatting
@@ -359,8 +384,18 @@ def main():
         default=None,
         help="Log a new food entry from the command line (e.g., '100g of chicken breast')."
     )
+    
+    parser.add_argument(
+        '--setup',
+        action='store_true',
+        help="Set up the application by creating a .env file."
+    )
 
     args = parser.parse_args()
+    
+    if args.setup:
+        setup_environment()
+        return
 
     if args.remove:
         if args.remove == 'last':
@@ -401,3 +436,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
