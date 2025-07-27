@@ -382,10 +382,10 @@ def main():
     # Interactive mode if no arguments are given
     while True:
         print("\nWhat would you like to do?")
-        print("1. Log a new food entry")
-        print("2. Show today's summary")
-        print("3. Show summary for a specific date")
-        print("4. Exit")
+        print("1. ✍️ Log a new food entry")
+        print("2. 📊 Show today's summary")
+        print("3. 📅 Show summary for a specific date")
+        print("4. 🚪 Exit")
         choice = input("> ")
         if choice == "1":
             food_input = input("Enter food entry (e.g., 'comi 100g de frango'): ")
