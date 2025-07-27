@@ -9,9 +9,9 @@ from langchain_openai import ChatOpenAI
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.runnables import RunnableSequence
 from langchain_core.output_parsers import StrOutputParser
-from cache import get_from_cache, add_to_cache
-from history import get_meals_for_date
-from utils import paginate_output
+from .cache import get_from_cache, add_to_cache
+from .history import get_meals_for_date
+from .utils import paginate_output
 import json
 from dotenv import load_dotenv
 

@@ -2,7 +2,7 @@
 
 import sqlite3
 import datetime
-from utils import paginate_output
+from .utils import paginate_output
 
 DB_FILE = "food_log.db"
 
